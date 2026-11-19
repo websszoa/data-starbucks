@@ -194,6 +194,12 @@ def validate(stores, collected, region):
         )
 
 
+def write_json(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
+
 def save_location_data(slug, region, stores, current_date):
     """매장 목록 API의 기본 정보로 지역별 좌표 파일을 저장한다."""
     items = []
@@ -225,9 +231,9 @@ def save_location_data(slug, region, stores, current_date):
         "date": current_date,
         "item": items,
     }
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
-    print(f"위치 파일이 저장되었습니다: {output_path}", flush=True)
+    write_json(output_path, data)
+    write_json(Path("location") / slug / "latest.json", data)
+    print(f"위치 파일이 저장되었습니다: {output_path} (+ latest.json)", flush=True)
     return output_path
 
 
@@ -259,9 +265,12 @@ def collect_region(slug, current_date, stores=None, save_location=True):
         "count": len(collected), "failed_count": len(errors),
         "errors": errors, "item": collected,
     }
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(final_data, file, ensure_ascii=False, indent=4)
+    write_json(output_path, final_data)
     print(f"파일이 저장되었습니다: {output_path}", flush=True)
+    # 일부 매장 수집에 실패한 불완전한 데이터는 latest.json에 반영하지 않는다.
+    if not errors:
+        write_json(Path("details") / slug / "latest.json", final_data)
+        print(f"latest.json 갱신: details/{slug}/latest.json", flush=True)
     if errors:
         raise RuntimeError(f"{len(errors)}개 매장의 상세 정보 수집에 실패했습니다. errors 항목을 확인하세요.")
 

@@ -3,6 +3,7 @@
 - count/{year}/count_{date}.json : 매일 저장 (전 지역 매장 수)
 - location/{slug}/{year}/...      : 변화가 있는 지역만 저장
 - details/{slug}/{year}/...       : 변화가 있는 지역만 저장
+- 각 폴더의 latest.json          : 위 파일이 저장될 때 함께 덮어씀 (고정 주소용)
 """
 
 from datetime import datetime
@@ -103,9 +104,9 @@ def save_count_data(collector, current_date, counts, previous_counts, changed_re
         "changed_regions": changed_regions,
         "regions": regions,
     }
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
-    print(f"카운트 파일이 저장되었습니다: {output_path}", flush=True)
+    collector.write_json(output_path, data)
+    collector.write_json(Path("count") / "latest.json", data)
+    print(f"카운트 파일이 저장되었습니다: {output_path} (+ latest.json)", flush=True)
 
 
 def main():
