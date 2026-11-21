@@ -410,20 +410,27 @@ def build_store(slug, location_item, detail):
     directions = detail.get("directions", "")
     codes = theme_codes(detail)
 
-    # 층: 주소 → 길안내 → 소개문 순으로 찾는다.
-    floors = parse_floors(address, parking_context=False)
-    if not floors:
-        floors = parse_floors(directions) or parse_floors(description)
-        if floors:
-            review.append("floors")
+    # 층: 주소·길안내·소개문을 모두 합친다. 주소에 일부 층만 적히고
+    # 길안내에 전체 사용 층이 적힌 매장이 있어 첫 결과에서 멈추지 않는다.
+    floors = []
+    for source, parking_context in (
+        (address, False),
+        (directions, True),
+        (description, True),
+    ):
+        for floor in parse_floors(source, parking_context=parking_context):
+            if floor not in floors:
+                floors.append(floor)
+    if not parse_floors(address, parking_context=False) and floors:
+        review.append("floors")
 
     # 뷰
-    view = detect_view(description, name)
+    view = detect_view("\n".join(filter(None, (description, directions))), name)
     if view:
         review.append("view")
 
-    # 펫: 스타벅스 펫존 아이콘 또는 소개문의 펫 프렌들리 언급
-    pet = "펫존" if "P02" in codes or re.search(r"펫\s*프렌들리|반려\s*동물과|펫과\s*함께", description) else None
+    # 펫: 스타벅스 펫존 아이콘 또는 소개문의 펫 프렌들리 언급, 그 외는 출입금지
+    pet = "펫존" if "P02" in codes or re.search(r"펫\s*프렌들리|반려\s*동물과|펫과\s*함께", description) else "애완동물 출입금지"
 
     # 주차
     parking = parse_parking(detail.get("parking", "")) if detail else {}
@@ -438,6 +445,7 @@ def build_store(slug, location_item, detail):
         "floors": sort_floors(floors),
         "location": [label for code, label in LOCATION_CODES.items() if code in codes],
         "view": view,
+        "smoking": "흡연 금지",
         "pet": pet,
         "services": list(dict.fromkeys(label for code, label in SERVICE_CODES.items() if code in codes)),
         "parking": parking,
@@ -454,7 +462,17 @@ def main():
         return
     today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
     previous = load_json(STORES_DIR / "stores.json", {}) or {}
+    backup = load_json(STORES_DIR / "stores-back.json", {}) or {}
     previous_items = {item["id"]: item for item in previous.get("item", [])}
+    # stores-back.json은 재생성 전 수동 조사값의 안전망이다.
+    for item in backup.get("item", []):
+        current = previous_items.setdefault(item["id"], item)
+        for field in ("seats", "study"):
+            if current.get(field) is None and item.get(field) is not None:
+                current[field] = item[field]
+        for field in ("floors", "view"):
+            if not current.get(field) and item.get(field):
+                current[field] = item[field]
 
     stores = {}
     review = {}
@@ -471,6 +489,14 @@ def main():
 
         for location_item in location.get("item", []):
             store, fields = build_store(slug, location_item, detail_by_code.get(location_item["code"]))
+            # 자동 수집으로 얻기 어려워 사람이 조사해 넣은 값은 재생성해도 보존한다.
+            old = previous_items.get(store["id"], {})
+            for field in ("seats", "study"):
+                if old.get(field) is not None:
+                    store[field] = old[field]
+            for field in ("floors", "view"):
+                if old.get(field):
+                    store[field] = old[field]
             stores[store["id"]] = store
             region_of[store["id"]] = slug
             if fields:
