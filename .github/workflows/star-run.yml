@@ -37,18 +37,12 @@ jobs:
         run: |
           python starbucks-changes.py
 
-      # 3-2. 할리스 매장 수집 (실패해도 스타벅스 데이터 커밋은 진행)
-      - name: Run Daily Hollys Collection
-        continue-on-error: true
-        run: |
-          python hollys-daily.py
-
       # 4. 생성된 데이터 파일 커밋
       - name: Commit changes
         run: |
           git config --global user.email "webstoryboy@naver.com"
           git config --global user.name "websseu"
-          git add starbucks/ hollys/
+          git add starbucks/
           git commit -m "스타벅스 데이터 업데이트 - $(date +"%Y-%m-%d")" || echo "No changes to commit"
 
       # 5. 변경사항 푸시

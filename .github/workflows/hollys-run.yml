@@ -1,0 +1,51 @@
+name: Weekly Hollys Collection
+
+on:
+  schedule:
+    # 매주 월요일 한국 시간 오전 7시 30분 (UTC 일요일 22시 30분)
+    - cron: "30 22 * * 0"
+  workflow_dispatch:
+
+# 스타벅스 수집과 같은 그룹으로 묶어 동시에 푸시하지 않도록 순서대로 실행한다.
+concurrency:
+  group: daily-starbucks-collection
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 저장소 체크아웃
+      - uses: actions/checkout@v4
+
+      # 2. Python 설정
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      # 3. 매장 수 확인 후 변화가 있으면 상세 수집, 신규·폐점 기록
+      # 일부 매장 상세 수집에 실패해도 수집된 결과는 커밋한다. (latest.json 은 실패 없을 때만 갱신됨)
+      - name: Run Weekly Hollys Collection
+        continue-on-error: true
+        run: |
+          python hollys-daily.py
+
+      # 4. 생성된 데이터 파일 커밋
+      - name: Commit changes
+        run: |
+          git config --global user.email "webstoryboy@naver.com"
+          git config --global user.name "websseu"
+          git add hollys/
+          git commit -m "할리스 데이터 업데이트 - $(date +"%Y-%m-%d")" || echo "No changes to commit"
+
+      # 5. 변경사항 푸시
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          branch: "main"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
