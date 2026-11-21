@@ -1,0 +1,136 @@
+{
+    "kind": "Korea Starbucks",
+    "date": "2026-11-20",
+    "total": 2215,
+    "changed_regions": [],
+    "regions": {
+        "seoul": {
+            "name": "서울",
+            "region_code": "01",
+            "count": 714,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "gyeonggi": {
+            "name": "경기",
+            "region_code": "08",
+            "count": 547,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "daegu": {
+            "name": "대구",
+            "region_code": "03",
+            "count": 97,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "daejeon": {
+            "name": "대전",
+            "region_code": "04",
+            "count": 73,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "busan": {
+            "name": "부산",
+            "region_code": "05",
+            "count": 146,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "ulsan": {
+            "name": "울산",
+            "region_code": "06",
+            "count": 38,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "incheon": {
+            "name": "인천",
+            "region_code": "07",
+            "count": 101,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "gangwon": {
+            "name": "강원",
+            "region_code": "09",
+            "count": 45,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "gyeongnam": {
+            "name": "경남",
+            "region_code": "10",
+            "count": 83,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "gyeongbuk": {
+            "name": "경북",
+            "region_code": "11",
+            "count": 67,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "jeonnam-gwangju": {
+            "name": "전남광주",
+            "region_code": "12",
+            "count": 109,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "jeonbuk": {
+            "name": "전북",
+            "region_code": "13",
+            "count": 45,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "chungnam": {
+            "name": "충남",
+            "region_code": "14",
+            "count": 56,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "chungbuk": {
+            "name": "충북",
+            "region_code": "15",
+            "count": 42,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "jeju": {
+            "name": "제주",
+            "region_code": "16",
+            "count": 36,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        },
+        "sejong": {
+            "name": "세종",
+            "region_code": "17",
+            "count": 16,
+            "previous_count": null,
+            "diff": null,
+            "changed": false
+        }
+    }
+}
