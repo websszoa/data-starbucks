@@ -168,6 +168,8 @@ def collect_store(index, summary):
                        (code == "WHCROAD" and detail.get("whcroad_yn") == "WHCROAD")],
         "images": [url for url in images if url],
         "hours": format_hours(hours),
+        # 아이콘 매핑에 없는 테마도 잃지 않도록 원본 코드를 함께 저장한다.
+        "theme_codes": sorted(theme_codes | ({"WHCROAD"} if detail.get("whcroad_yn") == "WHCROAD" else set())),
     }
 
 

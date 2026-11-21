@@ -32,12 +32,17 @@ jobs:
         run: |
           python starbucks-daily.py
 
+      # 3-1. stores.json(직접 관리)과 비교해 신규·폐점 매장 기록
+      - name: Check Store Changes
+        run: |
+          python starbucks-changes.py
+
       # 4. 생성된 데이터 파일 커밋
       - name: Commit changes
         run: |
           git config --global user.email "webstoryboy@naver.com"
           git config --global user.name "websseu"
-          git add count/ details/ location/
+          git add count/ details/ location/ changes/
           git commit -m "스타벅스 데이터 업데이트 - $(date +"%Y-%m-%d")" || echo "No changes to commit"
 
       # 5. 변경사항 푸시
