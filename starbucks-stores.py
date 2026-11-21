@@ -1,18 +1,19 @@
-"""수집 데이터(location/details)로 전국 매장 데이터(stores/stores.json)를 처음 생성한다.
+"""수집 데이터(starbucks/location, details)로 전국 매장 데이터(starbucks/stores.json)를 처음 생성한다.
 
 stores.json 은 직접 관리하는 파일이므로 자동 실행하지 않는다.
 이미 파일이 있으면 덮어쓰지 않으며, 전체를 다시 만들 때만 --force 로 실행한다.
-(신규·폐점 매장 확인은 starbucks-changes.py → changes/latest.json)
+(신규·폐점 매장 확인은 starbucks-changes.py → starbucks/changes/latest.json)
 
 실행: python starbucks-stores.py --force
 
 입력
-- location/{지역}/latest.json : 현재 영업 매장 목록 (기준)
-- details/{지역}/latest.json  : 매장 상세 정보
-- stores/stores.json           : 이전 결과 (위치 데이터를 못 읽은 날 대비용)
+- starbucks/location/{지역}/latest.json : 현재 영업 매장 목록 (기준)
+- starbucks/details/{지역}/latest.json  : 매장 상세 정보
+- starbucks/stores.json                 : 이전 결과 (위치 데이터를 못 읽은 날 대비용)
+- starbucks/stores-back.json            : 수동 조사값 백업
 
 출력
-- stores/stores.json           : 전국 현재 영업 매장
+- starbucks/stores.json                 : 전국 현재 영업 매장
 
 값이 없는 항목은 결과에 넣지 않는다.
 """
@@ -25,7 +26,8 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parent
-STORES_DIR = ROOT / "stores"
+DATA_DIR = ROOT / "starbucks"
+STORES_DIR = DATA_DIR
 
 # 지역 순서 (starbucks-details.py 의 REGIONS 와 동일)
 REGIONS = [
@@ -46,6 +48,9 @@ SERVICE_CODES = {
 }
 
 # theme_codes 가 없는 예전 상세 데이터용: 아이콘 파일명 → 코드
+# services 에 넣을 전체 라벨 (상세의 services + facilities 아이콘)
+SERVICE_LABELS = {**SERVICE_CODES, "T09": "주차", "P40": "입점", **LOCATION_CODES}
+
 ICON_CODES = {
     "icon04.png": "T09", "icon05.png": "T10", "icon18.png": "T22", "icon20.png": "T21",
     "icon22.png": "T05", "icon23.png": "T30", "icon_delivers_service.png": "T43",
@@ -257,6 +262,192 @@ def parse_parking(raw):
     return result
 
 
+
+# ── 스타벅스 주차 (할리스는 위 parse_parking 형식을 그대로 쓴다) ──────────
+# available 주차가능/주차불가능, fee 무료/유료/조건부무료, location 주차장 위치, spaces 50대 이상,
+# condition 무료 조건(2시간 무료), method 요금(초과 시 10분당 2000원), payment 정산,
+# memo 위 항목에 해당하지 않는 내용, raw 원본
+STARBUCKS_PARKING = ("available", "fee", "location", "spaces", "condition", "method", "payment", "memo", "raw")
+
+FREE_TIME = re.compile(r"\d+\s*(?:시간|분)\s*(?:\([^)]*\)\s*)?(?:최초\s*)?(?:무료|무상|지원|제공|등록)|무료\s*\d+\s*(?:시간|분)")
+RATE = re.compile(r"((?:\d+\s*)?(?:시간|분))\s*당\s*([\d,]+)\s*원")
+SEGMENT_SPLIT = re.compile(r"[/|\n]|,(?!\d{3})|\.\s|\s(?=\()|(?<=\))\s")
+# 남겨도 의미 없는 짧은 조각
+TRIVIAL = re.compile(r"(?:(?:조건부\s*)?(?:무료|유료)(?:\s*주차)?|추가|이후|발생|부과|초과\s*시?|요금|비용|씩|원|O|X|없음|[-.\s])+")
+
+
+def parse_rate(raw):
+    rates = []
+    for unit, price in RATE.findall(raw or ""):
+        unit = re.sub(r"\s+", "", unit)
+        rate = f"{'1' if unit == '시간' else ''}{unit}당 {price.replace(',', '')}원"
+        if rate not in rates:
+            rates.append(rate)
+    return ", ".join(rates) or None
+
+
+def parking_parts(raw):
+    """원본을 줄(항목) 단위로 나눠 [(라벨, 내용)] 으로 반환한다. 라벨 규칙은 split_fields 와 같다."""
+    parts = []
+    for part in re.split(r"\n+|(?:^|\s)(?=\d\s*[.)]\s*\D)", raw or ""):
+        line = re.sub(r"^\s*\d\s*[.)]\s*", "", part).strip()
+        if not line:
+            continue
+        for key, pattern in LABELS:
+            match = re.match(rf"({pattern})\s*[:：\-–_=]?\s*(.*)$", line)
+            if match:
+                parts.append((key, match.group(2).strip()))
+                break
+        else:
+            parts.append(("other", line))
+    return parts
+
+
+def tidy(segment):
+    """조각 앞뒤의 짝이 맞지 않는 괄호와 군더더기를 정리한다."""
+    segment = re.sub(r"조건부\s*무료\s*|^\s*(?:주차\s*)?조건\s*[:：\-]\s*", "", segment).strip()
+    while segment.startswith("(") and segment.endswith(")"):
+        segment = segment[1:-1].strip()
+    if segment.startswith("(") and ")" not in segment:
+        segment = segment[1:]
+    if segment.endswith(")") and "(" not in segment:
+        segment = segment[:-1]
+    if segment.count("(") > segment.count(")"):
+        segment = segment + ")"
+    segment = clean(segment)
+    if not segment or TRIVIAL.fullmatch(segment):
+        return None
+    return segment
+
+
+def split_condition(text):
+    """조건 문장을 무료 조건 구절과 나머지 구절로 나눈다."""
+    free, rest = [], []
+    for segment in SEGMENT_SPLIT.split(text or ""):
+        segment = RATE.sub("", segment)
+        # 요금을 빼고 남은 "(이후 )", "(1시간 경과시)" 같은 빈 괄호를 지운다.
+        segment = re.sub(r"\(([^)]*)\)", lambda m: "" if not m.group(1).strip() or TRIVIAL.fullmatch(m.group(1).strip())
+                         or re.fullmatch(r"\d+\s*(?:시간|분)\s*(?:경과|초과)\s*시?", m.group(1).strip()) else m.group(0), segment)
+        segment = re.sub(r"\(\s*(?:\d+\s*(?:시간|분)\s*)?(?:경과|초과|이후)?\s*시?\s*$", "", segment)  # 닫히지 않은 빈 괄호
+        segment = re.sub(r"(?:이후|초과\s*시?|시간\s*초과\s*시?)\s*$", "", segment.strip())
+        segment = tidy(segment)
+        if not segment:
+            continue
+        target = free if FREE_TIME.search(segment) else rest
+        if segment not in target:
+            target.append(segment)
+    return free, rest
+
+
+def parse_parking_location(raw):
+    """'주차장 정보 - ...' 라벨이나, 라벨 없이 쓴 2번 항목(1.주차가능 2.건물 지하층)을 위치로 본다."""
+    match = re.search(r"주차장?\s*정보\s*[:：\-–]?\s*([^\n]+)", raw or "")
+    if match:
+        return clean(match.group(1))
+    lines = [line.strip() for line in (raw or "").splitlines()]
+    if len(lines) >= 2 and re.match(r"1\s*[.)]\s*주차\s*가능\s*$", lines[0]):
+        match = re.match(r"2\s*[.)]\s*(.+)$", lines[1])
+        if match and not re.search(r"\d+\s*대|무료|유료|정산|조건", match.group(1)):
+            return clean(match.group(1))
+    return None
+
+
+def is_basic_line(text, result):
+    """주차 여부·위치·대수처럼 다른 항목에 이미 들어간 줄인지 확인한다."""
+    text = clean(text) or ""
+    if re.fullmatch(r"(?:매장\s*)?주차\s*(?:가능|불가능?)\s*[.!]?", text):
+        return True
+    if result["location"] and (text == result["location"] or "주차장 정보" in text or "주차장정보" in text):
+        return True
+    if re.search(r"\d+\s*대", text) and len(text) <= 25 and not re.search(r"무료|유료|원|시간|분", text):
+        return True
+    return False
+
+
+def parse_starbucks_parking(raw):
+    base = parse_parking(raw)
+    result = dict.fromkeys(STARBUCKS_PARKING)
+    result.update(available=base["available"], fee=base["fee"], spaces=base["spaces"])
+    result["raw"] = clean_text(raw)
+    if base["available"] != "주차가능":
+        return result
+
+    parts = parking_parts(raw)
+    first = lambda key: next((text for k, text in parts if k == key and clean(text)), None)
+    result["location"] = clean(first("location")) or parse_parking_location(raw)
+    memo = []
+    used = set()
+
+    # 정산: 정산 항목, 없으면 등록 방법. "정산O" 처럼 한두 글자뿐이면 memo 로 보낸다.
+    payment_key = "payment" if first("payment") else "registration"
+    payment = clean(first(payment_key))
+    if payment:
+        used.add((payment_key, first(payment_key)))
+        if len(payment) <= 2:
+            memo.append(f"정산 {payment}")
+            payment = None
+    result["payment"] = payment
+
+    # 조건: 조건 항목 → 기타·라벨 없는 줄 → 등록·정산 순서로 무료 조건 구절을 찾는다.
+    if base["fee"] in ("조건부무료", "무료"):
+        order = ("condition", "note", "other", "registration", "payment")
+        candidates = sorted(
+            (part for part in parts if part[0] in order and not is_basic_line(part[1], result)),
+            key=lambda part: order.index(part[0]),
+        )
+        for key, text in candidates:
+            free, rest = split_condition(text)
+            if free:
+                result["condition"] = ", ".join(free)
+                memo.extend(rest)
+                used.add((key, text))
+                break
+        else:
+            text = first("condition")
+            if base["fee"] == "조건부무료" and text:
+                result["condition"] = tidy(RATE.sub("", text))
+                used.add(("condition", text))
+
+    result["method"] = parse_rate(raw)
+    # 무료 시간이 있는 매장의 요금은 무료 시간을 넘겼을 때 내는 요금이다.
+    if result["method"] and base["fee"] in ("조건부무료", "무료"):
+        result["method"] = f"초과 시 {result['method']}"
+
+    # 나머지: 어느 항목에도 쓰이지 않은 줄
+    for key, text in parts:
+        if key == "spaces":  # "50대 이상(일요일 운영X)" 같은 괄호 속 안내는 남긴다
+            memo.extend(seg for seg in map(tidy, re.findall(r"\(([^)]*)\)", text)) if seg and seg not in memo)
+            continue
+        if (key, text) in used or key == "location" or is_basic_line(text, result):
+            continue
+        if key in ("payment", "registration") and clean(text) == result["payment"]:
+            continue
+        if key == "condition":
+            free, rest = split_condition(text)
+            rest = free + rest  # 무료 조건으로 쓰이지 않은 조건 문장은 통째로 남긴다
+        else:
+            rest = [tidy(RATE.sub("", text))]
+        for segment in rest:
+            if segment and segment not in memo and segment != result["condition"]:
+                memo.append(segment)
+    result["memo"] = " / ".join(memo) or None
+    return result
+
+
+def parse_simple_parking(raw, icon=False):
+    """할리스·투썸처럼 한 줄로 짧게 쓴 주차 정보를 스타벅스 주차 형식으로 바꾼다.
+    icon: 사이트에 주차 아이콘(서비스)이 있는지"""
+    text = clean(raw) or ""
+    if re.search(r"불가|없습니다|없음|공간\s*(?:이\s*)?없|^X$", text) and not re.search(r"(?<!불)가능", text):
+        result = dict.fromkeys(STARBUCKS_PARKING)
+        result.update(available="주차불가능", raw=clean_text(raw))
+        return result
+    result = parse_starbucks_parking("주차가능" if re.fullmatch(r"가능|O|있음|유", text) else raw)
+    result["raw"] = clean_text(raw)
+    if result["available"] is None and (icon or re.search(r"(?<!불)가능|이용|有|있", text)):
+        result["available"] = "주차가능"
+    return result
+
 # ── 뷰 ────────────────────────────────────────────────────────────
 VIEW_KEYWORDS = {
     "바다": r"바다|오션|해변|해수욕장|해안|비치|수평선|부산항|앞바다|바닷",
@@ -359,10 +550,11 @@ def write_json(path, data):
 # 모든 매장이 같은 항목을 갖도록 하는 기본 형태. 정보가 없으면 null 로 남긴다.
 # 목록 항목(type/location/services)은 공식 정보 기준이라 해당 없음이면 [] 이다.
 STORE_TEMPLATE = {
-    "id": None, "name": None, "address": None, "lat": None, "lng": None,
-    "floors": None, "location": [], "view": None,
-    "seats": None, "smoking": None, "pet": None, "study": None,
-    "services": [], "parking": None,
+    "id": None, "name": None, "address": None, "directions": None, "description": None,
+    "lat": None, "lng": None,
+    "floors": None, "location": [], "type": [], "opened": None, "view": None,
+    "seats": None, "smoking": None, "pet": None, "study": None, "phone": None,
+    "services": [], "parking": None, "images": [],
 }
 PARKING_TEMPLATE = {
     "available": None, "fee": None, "spaces": None,
@@ -370,20 +562,73 @@ PARKING_TEMPLATE = {
 }
 
 
-def normalize(store):
-    """항목 순서를 맞추고 빠진 항목은 null(또는 [])로 채운다. 빈 값도 null 로 통일한다."""
+def clean_text(text):
+    """줄마다 앞뒤 공백과 연속 공백을 정리하고 빈 줄은 뺀다."""
+    lines = (re.sub(r"[ \t\u00a0]+", " ", line).strip() for line in (text or "").splitlines())
+    return "\n".join(line for line in lines if line) or None
+
+
+# 스타벅스 stores.json 에서 쓰지 않는 항목 (할리스는 그대로 사용)
+STARBUCKS_DROP = ("floors", "location")
+
+
+def normalize(store, drop=(), parking_keys=None):
+    """항목 순서를 맞추고 빠진 항목은 null(또는 [])로 채운다. 빈 값도 null 로 통일한다.
+    drop 에 있는 항목은 결과에서 뺀다."""
     result = {}
     for key, default in STORE_TEMPLATE.items():
+        if key in drop:
+            continue
         value = store.get(key, default)
         if value in ("", {}) or (value == [] and default is None):
             value = None
         result[key] = value if value is not None or default is None else default
     parking = store.get("parking") or {}
-    result["parking"] = {key: (parking.get(key) or None) for key in PARKING_TEMPLATE}
+    result["parking"] = {key: (parking.get(key) or None) for key in (parking_keys or PARKING_TEMPLATE)}
     for key, value in store.items():  # 템플릿에 없는 항목도 유지
-        if key not in result:
+        if key not in result and key not in drop:
             result[key] = value
     return result
+
+
+# 매장 형태: 스타벅스 매장 찾기의 '타입' 필터와 같다.
+TYPE_CODES = {"T01": "DT", "T03": "리저브", "T27": "워크스루", "T12": "커뮤니티스토어"}
+
+
+def store_type(name, detail, codes=None):
+    """테마 코드로 판단하고, 코드가 없는 예전 데이터는 이름으로 판단한다.
+    (이름 끝 R 이어도 삼성전자DSR·삼성디스플레이SDR 은 리저브가 아니고,
+     양재역·별다방처럼 이름에 R 이 없는 리저브 매장도 있어 코드가 더 정확하다)"""
+    if codes is None and "theme_codes" in (detail or {}):
+        codes = set(detail["theme_codes"])
+    if codes:
+        return [label for code, label in TYPE_CODES.items() if code in codes]
+    name = name or ""
+    types = []
+    if name.endswith("DT"):
+        types.append("DT")
+    if name.startswith("리저브") or (name.endswith("R") and not name.endswith(("DSR", "SDR"))):
+        types.append("리저브")
+    return types
+
+
+# services 에서 뺄 항목: 주차는 parking 항목에 따로 있고, 블론드·피지오는 거의 모든 매장에 있어 구분 의미가 없다.
+SERVICE_EXCLUDE = {"주차", "피지오", "블론드"}
+
+
+def service_labels(detail, codes):
+    """상세의 services·facilities 아이콘을 사이트에 보이는 순서대로 라벨로 바꾼다."""
+    labels = []
+    for url in (detail.get("services") or []) + (detail.get("facilities") or []):
+        code = ICON_CODES.get(str(url).rsplit("/", 1)[-1])
+        if code in SERVICE_LABELS:
+            labels.append(SERVICE_LABELS[code])
+    labels += [label for code, label in SERVICE_LABELS.items() if code in codes]  # 아이콘 없이 코드만 있는 경우
+    return [label for label in dict.fromkeys(labels) if label not in SERVICE_EXCLUDE]
+
+
+def normalize_starbucks(store):
+    return normalize(store, STARBUCKS_DROP, STARBUCKS_PARKING)
 
 
 def theme_codes(detail):
@@ -408,7 +653,9 @@ def build_store(slug, location_item, detail):
     address = (detail.get("address") or location_item.get("address", "")).strip()
     description = detail.get("description", "")
     directions = detail.get("directions", "")
-    codes = theme_codes(detail)
+    # 매장 목록 API 코드(location)와 상세 코드를 합친다. 위생등급·리조트는 목록 코드에만 있다.
+    list_codes = set(location_item.get("theme_codes") or [])
+    codes = theme_codes(detail) | list_codes
 
     # 층: 주소·길안내·소개문을 모두 합친다. 주소에 일부 층만 적히고
     # 길안내에 전체 사용 층이 적힌 매장이 있어 첫 결과에서 멈추지 않는다.
@@ -429,26 +676,31 @@ def build_store(slug, location_item, detail):
     if view:
         review.append("view")
 
-    # 펫: 스타벅스 펫존 아이콘 또는 소개문의 펫 프렌들리 언급, 그 외는 출입금지
-    pet = "펫존" if "P02" in codes or re.search(r"펫\s*프렌들리|반려\s*동물과|펫과\s*함께", description) else "애완동물 출입금지"
+    # 펫: 스타벅스 펫존 아이콘 또는 소개문의 펫 프렌들리 언급, 그 외는 금지
+    pet = "펫존" if "P02" in codes or re.search(r"펫\s*프렌들리|반려\s*동물과|펫과\s*함께", description) else "금지"
 
     # 주차
-    parking = parse_parking(detail.get("parking", "")) if detail else {}
-    parking.pop("raw", None)
+    parking = parse_starbucks_parking(detail.get("parking", "")) if detail else {}
 
     store = {
         "id": location_item.get("code") or detail.get("code"),
         "name": name,
         "address": address,
+        "directions": clean_text(directions),
+        "description": clean_text(description),
         "lat": to_float(location_item.get("latitude") or detail.get("latitude")),
         "lng": to_float(location_item.get("longitude") or detail.get("longitude")),
         "floors": sort_floors(floors),
         "location": [label for code, label in LOCATION_CODES.items() if code in codes],
+        "type": store_type(name, detail, list_codes or None),
+        "opened": location_item.get("open_dt") or None,
         "view": view,
-        "smoking": "흡연 금지",
+        "smoking": "금지",
         "pet": pet,
-        "services": list(dict.fromkeys(label for code, label in SERVICE_CODES.items() if code in codes)),
+        "phone": (detail.get("phone") or "").strip() or None,
+        "services": service_labels(detail, codes),
         "parking": parking,
+        "images": list(dict.fromkeys(detail.get("images") or [])),
     }
     if not detail:
         review.append("details")
@@ -457,7 +709,7 @@ def build_store(slug, location_item, detail):
 
 def main():
     if (STORES_DIR / "stores.json").exists() and "--force" not in sys.argv:
-        print("stores/stores.json 이 이미 있습니다. 직접 수정한 내용이 덮어써지므로 실행하지 않습니다.\n"
+        print("starbucks/stores.json 이 이미 있습니다. 직접 수정한 내용이 덮어써지므로 실행하지 않습니다.\n"
               "전체를 다시 생성하려면: python starbucks-stores.py --force", flush=True)
         return
     today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
@@ -479,12 +731,12 @@ def main():
     region_of = {}  # 정렬용 (결과에는 넣지 않음)
     missing_regions = []
     for slug in REGIONS:
-        location = load_json(ROOT / "location" / slug / "latest.json")
+        location = load_json(DATA_DIR / "location" / slug / "latest.json")
         if location is None:
             missing_regions.append(slug)
             print(f"위치 데이터 없음: {slug}", flush=True)
             continue
-        details = load_json(ROOT / "details" / slug / "latest.json", {}) or {}
+        details = load_json(DATA_DIR / "details" / slug / "latest.json", {}) or {}
         detail_by_code = {item["code"]: item for item in details.get("item", [])}
 
         for location_item in location.get("item", []):
@@ -513,7 +765,7 @@ def main():
 
     region_order = {slug: index for index, slug in enumerate(REGIONS)}
     items = sorted(
-        (normalize(item) for item in stores.values()),
+        (normalize_starbucks(item) for item in stores.values()),
         key=lambda item: (region_order.get(region_of.get(item["id"]), 99), item.get("name") or ""),
     )
     for item in items:

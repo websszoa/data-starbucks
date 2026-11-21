@@ -1,8 +1,8 @@
-"""직접 관리하는 stores/stores.json 과 실제 매장 목록(location)을 비교해 신규·폐점 매장을 기록한다.
+"""직접 관리하는 starbucks/stores.json 과 실제 매장 목록(location)을 비교해 신규·폐점 매장을 기록한다.
 
 실행: python starbucks-changes.py  (매일 수집 후 자동 실행)
 
-출력: changes/latest.json
+출력: starbucks/changes/latest.json
 - added   : 실제 목록에는 있는데 stores.json 에 없는 매장 (신규)
             draft 에 stores.json 과 같은 형식의 초안을 넣어 두므로 검토 후 복사해 쓰면 된다.
 - removed : stores.json 에는 있는데 실제 목록에서 사라진 매장 (폐점)
@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 import json
 
 ROOT = Path(__file__).resolve().parent
+DATA_DIR = ROOT / "starbucks"
 
 
 def load_stores_module():
@@ -38,7 +39,7 @@ def load_json(path, default=None):
 def region_history(slug):
     """지역의 위치 스냅샷을 날짜순으로 [(date, {code: item})] 반환한다."""
     snapshots = []
-    for path in (ROOT / "location" / slug).glob("*/*.json"):
+    for path in (DATA_DIR / "location" / slug).glob("*/*.json"):
         data = load_json(path)
         if data and data.get("date"):
             snapshots.append((data["date"], {item["code"]: item for item in data.get("item", [])}))
@@ -72,16 +73,16 @@ def main():
     stores_module = load_stores_module()
     today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
 
-    managed = load_json(ROOT / "stores" / "stores.json")
+    managed = load_json(DATA_DIR / "stores.json")
     if managed is None:
-        raise SystemExit("stores/stores.json 을 읽을 수 없습니다.")
+        raise SystemExit("starbucks/stores.json 을 읽을 수 없습니다.")
     managed_items = {item["id"]: item for item in managed.get("item", [])}
 
     current = {}      # code → (slug, location item)
     histories = {}
     missing_regions = []
     for slug in stores_module.REGIONS:
-        location = load_json(ROOT / "location" / slug / "latest.json")
+        location = load_json(DATA_DIR / "location" / slug / "latest.json")
         if location is None:
             missing_regions.append(slug)
             continue
@@ -97,10 +98,10 @@ def main():
     for code, (slug, location_item) in current.items():
         if code in managed_items:
             continue
-        details = load_json(ROOT / "details" / slug / "latest.json", {}) or {}
+        details = load_json(DATA_DIR / "details" / slug / "latest.json", {}) or {}
         detail = next((item for item in details.get("item", []) if item.get("code") == code), None)
         draft, _ = stores_module.build_store(slug, location_item, detail)
-        draft = stores_module.normalize(draft)
+        draft = stores_module.normalize_starbucks(draft)
         draft.pop("region", None)
         added.append({
             "id": code,
@@ -139,7 +140,7 @@ def main():
         "added": added,
         "removed": removed,
     }
-    output = ROOT / "changes" / "latest.json"
+    output = DATA_DIR / "changes" / "latest.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8") as file:
         json.dump(data, file, ensure_ascii=False, indent=4)

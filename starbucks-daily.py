@@ -1,8 +1,8 @@
 """매일 지역별 매장 수(count)를 기록하고, 변화가 있는 지역만 위치/상세 정보를 수집한다.
 
-- count/{year}/count_{date}.json : 매일 저장 (전 지역 매장 수)
-- location/{slug}/{year}/...      : 변화가 있는 지역만 저장
-- details/{slug}/{year}/...       : 변화가 있는 지역만 저장
+- starbucks/count/{year}/count_{date}.json : 매일 저장 (전 지역 매장 수)
+- starbucks/location/{slug}/{year}/...: 변화가 있는 지역만 저장
+- starbucks/details/{slug}/{year}/... : 변화가 있는 지역만 저장
 - 각 폴더의 latest.json          : 위 파일이 저장될 때 함께 덮어씀 (고정 주소용)
 """
 
@@ -11,6 +11,8 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import json
+
+DATA_DIR = Path(__file__).resolve().parent / "starbucks"
 
 
 def load_collector():
@@ -41,7 +43,7 @@ def latest_json(paths, current_date):
 
 def load_previous_counts(current_date):
     """가장 최근 count 파일의 지역별 매장 수를 읽는다."""
-    data = latest_json(Path("count").glob("*/count_*.json"), current_date)
+    data = latest_json((DATA_DIR / "count").glob("*/count_*.json"), current_date)
     if data is None:
         return {}
     return {
@@ -53,7 +55,7 @@ def load_previous_counts(current_date):
 
 def load_previous_location(slug, current_date):
     """가장 최근에 저장된 위치 스냅샷(= 마지막으로 변화가 있었던 날)을 읽는다."""
-    return latest_json((Path("location") / slug).glob("*/*.json"), current_date)
+    return latest_json((DATA_DIR / "location" / slug).glob("*/*.json"), current_date)
 
 
 def detect_change(previous_count, previous_location, stores):
@@ -80,7 +82,7 @@ def detect_change(previous_count, previous_location, stores):
 
 def save_count_data(collector, current_date, counts, previous_counts, changed_regions):
     year = current_date[:4]
-    output_dir = Path("count") / year
+    output_dir = DATA_DIR / "count" / year
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"count_{current_date}.json"
 
@@ -105,7 +107,7 @@ def save_count_data(collector, current_date, counts, previous_counts, changed_re
         "regions": regions,
     }
     collector.write_json(output_path, data)
-    collector.write_json(Path("count") / "latest.json", data)
+    collector.write_json(DATA_DIR / "count" / "latest.json", data)
     print(f"카운트 파일이 저장되었습니다: {output_path} (+ latest.json)", flush=True)
 
 

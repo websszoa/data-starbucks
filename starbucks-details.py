@@ -7,6 +7,9 @@ import json
 import argparse
 import time
 
+# 스타벅스 데이터는 모두 starbucks/ 폴더에 저장한다.
+DATA_DIR = Path(__file__).resolve().parent / "starbucks"
+
 
 BASE_URL = "https://www.starbucks.co.kr"
 REFERER = f"{BASE_URL}/store/store_map.do?disp=locale"
@@ -202,6 +205,12 @@ def write_json(path, data):
         json.dump(data, file, ensure_ascii=False, indent=4)
 
 
+def format_open_date(value):
+    """'20190530' → '2019-05-30'. 형식이 다르면 빈 문자열."""
+    value = str(value or "").strip()
+    return f"{value[:4]}-{value[4:6]}-{value[6:8]}" if len(value) == 8 and value.isdigit() else ""
+
+
 def save_location_data(slug, region, stores, current_date):
     """매장 목록 API의 기본 정보로 지역별 좌표 파일을 저장한다."""
     items = []
@@ -216,6 +225,9 @@ def save_location_data(slug, region, stores, current_date):
             "address": store.get("doro_address") or store.get("addr") or "",
             "latitude": latitude,
             "longitude": longitude,
+            "open_dt": format_open_date(store.get("open_dt")),  # 개점일
+            # 타입(DT·리저브 등)·위생등급·리조트처럼 상세 아이콘에 없는 코드까지 보관한다.
+            "theme_codes": sorted(filter(None, (store.get("theme_state") or "").split("@"))),
         })
 
     codes = [item["code"] for item in items]
@@ -223,7 +235,7 @@ def save_location_data(slug, region, stores, current_date):
         raise RuntimeError(f'{region["name"]} 위치 데이터에 중복 매장 코드가 있습니다.')
 
     year = current_date[:4]
-    output_dir = Path("location") / slug / year
+    output_dir = DATA_DIR / "location" / slug / year
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{slug}_{current_date}.json"
     data = {
@@ -234,7 +246,7 @@ def save_location_data(slug, region, stores, current_date):
         "item": items,
     }
     write_json(output_path, data)
-    write_json(Path("location") / slug / "latest.json", data)
+    write_json(DATA_DIR / "location" / slug / "latest.json", data)
     print(f"위치 파일이 저장되었습니다: {output_path} (+ latest.json)", flush=True)
     return output_path
 
@@ -242,7 +254,7 @@ def save_location_data(slug, region, stores, current_date):
 def collect_region(slug, current_date, stores=None, save_location=True):
     region = REGIONS[slug]
     year = current_date[:4]
-    output_dir = Path("details") / slug / year
+    output_dir = DATA_DIR / "details" / slug / year
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{slug}_{current_date}.json"
 
@@ -271,7 +283,7 @@ def collect_region(slug, current_date, stores=None, save_location=True):
     print(f"파일이 저장되었습니다: {output_path}", flush=True)
     # 일부 매장 수집에 실패한 불완전한 데이터는 latest.json에 반영하지 않는다.
     if not errors:
-        write_json(Path("details") / slug / "latest.json", final_data)
+        write_json(DATA_DIR / "details" / slug / "latest.json", final_data)
         print(f"latest.json 갱신: details/{slug}/latest.json", flush=True)
     if errors:
         raise RuntimeError(f"{len(errors)}개 매장의 상세 정보 수집에 실패했습니다. errors 항목을 확인하세요.")
