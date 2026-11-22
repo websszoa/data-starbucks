@@ -1,0 +1,32 @@
+{
+    "lastBuildDate": "Mon, 23 Nov 2026 06:55:00 +0900",
+    "total": 3,
+    "start": 1,
+    "display": 100,
+    "items": [
+        {
+            "title": "스타벅스 광화문점 3층 후기",
+            "link": "https://blog.naver.com/gw1/2234000001",
+            "description": "광화문 스타벅스 3층 좌석이 넓어요 &amp; 콘센트도 많습니다.",
+            "bloggername": "광화문러",
+            "bloggerlink": "https://blog.naver.com/gw1",
+            "postdate": "20261119"
+        },
+        {
+            "title": "종로 <b>광화문</b> 스타벅스 조용한 시간",
+            "link": "https://blog.naver.com/gw2/2234000002",
+            "description": "광화문 스타벅스는 오전에 한산해요. 세종대로 쪽 출입구 이용.",
+            "bloggername": "조용한카페",
+            "bloggerlink": "https://blog.naver.com/gw2",
+            "postdate": "20261117"
+        },
+        {
+            "title": "부산 해운대 카페 추천",
+            "link": "https://blog.naver.com/busan3/2234000003",
+            "description": "해운대 바다가 보이는 카페 세 곳.",
+            "bloggername": "부산여행",
+            "bloggerlink": "https://blog.naver.com/busan3",
+            "postdate": "20261116"
+        }
+    ]
+}
