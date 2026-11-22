@@ -1,26 +1,26 @@
 {
     "kind": "Korea Starbucks",
-    "date": "2026-11-19",
-    "total": 2215,
+    "date": "2026-11-22",
+    "total": 2216,
     "changed_regions": [
-        "seoul"
+        "gyeonggi"
     ],
     "regions": {
         "seoul": {
             "name": "서울",
             "region_code": "01",
             "count": 714,
-            "previous_count": 713,
-            "diff": 1,
-            "changed": true
+            "previous_count": 714,
+            "diff": 0,
+            "changed": false
         },
         "gyeonggi": {
             "name": "경기",
             "region_code": "08",
-            "count": 547,
+            "count": 548,
             "previous_count": 547,
-            "diff": 0,
-            "changed": false
+            "diff": 1,
+            "changed": true
         },
         "daegu": {
             "name": "대구",
