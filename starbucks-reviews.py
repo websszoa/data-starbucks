@@ -152,6 +152,7 @@ class AuthError(Exception):
 
 
 def search(query, client_id, client_secret, start=1):
+    start = max(1, min(int(start), MAX_START))
     params = urlencode({"query": query, "display": DISPLAY, "start": start, "sort": "sim"})
     request = Request(
         f"{API_URL}?{params}",
