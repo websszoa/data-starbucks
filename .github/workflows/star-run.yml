@@ -33,12 +33,15 @@ jobs:
           python starbucks-daily.py
 
       # 3-1. stores.json(직접 관리)과 비교해 신규·폐점 매장 기록
+      #      (3단계에서 일부 매장이 실패해도 이후 단계는 실행해 그날 데이터를 저장한다)
       - name: Check Store Changes
+        if: ${{ !cancelled() }}
         run: |
           python starbucks-changes.py
 
       # 4. 생성된 데이터 파일 커밋
       - name: Commit changes
+        if: ${{ !cancelled() }}
         run: |
           git config --global user.email "webstoryboy@naver.com"
           git config --global user.name "websseu"
@@ -47,6 +50,7 @@ jobs:
 
       # 5. 변경사항 푸시
       - name: Push changes
+        if: ${{ !cancelled() }}
         uses: ad-m/github-push-action@master
         with:
           branch: "main"

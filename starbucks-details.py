@@ -17,6 +17,7 @@ REQUEST_TIMEOUT = 20
 MAX_RETRIES = 3
 REQUEST_INTERVAL = 1.5
 DEFAULT_RATE_LIMIT_WAIT = 60
+FAILED_RETRY_WAIT = 30
 
 REGIONS = {
     "seoul": {"name": "서울", "code": "01"},
@@ -262,15 +263,31 @@ def collect_region(slug, current_date, stores=None, save_location=True):
     print(f'{region["name"]} 매장 {len(stores)}개를 확인했습니다.', flush=True)
     if save_location:
         save_location_data(slug, region, stores, current_date)
-    collected = []
-    errors = []
+    results = {}
+    failed = []
     for index, store in enumerate(stores):
         try:
-            collected.append(collect_store(index, store))
+            results[index] = collect_store(index, store)
         except Exception as error:
-            errors.append({"code": store.get("s_biz_code", ""),
-                           "name": store.get("s_name", ""), "error": str(error)})
+            failed.append((index, store, error))
+            print(f'매장 수집 실패: {store.get("s_name", "")}({store.get("s_biz_code", "")}) - {error}', flush=True)
         print(f"수집 진행: {index + 1}/{len(stores)}", flush=True)
+
+    # 일시적인 오류일 수 있으므로 실패한 매장만 잠시 쉬었다가 한 번 더 시도한다.
+    errors = []
+    if failed:
+        print(f"\n실패한 매장 {len(failed)}개를 {FAILED_RETRY_WAIT}초 후 다시 시도합니다.", flush=True)
+        time.sleep(FAILED_RETRY_WAIT)
+        for index, store, _ in failed:
+            name = f'{store.get("s_name", "")}({store.get("s_biz_code", "")})'
+            try:
+                results[index] = collect_store(index, store)
+                print(f"재시도 성공: {name}", flush=True)
+            except Exception as error:
+                errors.append({"code": store.get("s_biz_code", ""),
+                               "name": store.get("s_name", ""), "error": str(error)})
+                print(f"재시도 실패: {name} - {error}", flush=True)
+    collected = [results[index] for index in sorted(results)]
     validate(stores, collected, region)
     final_data = {
         "kind": "Korea Starbucks", "date": current_date,
