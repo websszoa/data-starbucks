@@ -1,10 +1,17 @@
 {
     "kind": "Korea Starbucks Store Changes",
-    "date": "2026-11-23",
+    "date": "2026-11-25",
     "stores_count": 2216,
-    "current_count": 2216,
+    "current_count": 2215,
     "added_count": 0,
-    "removed_count": 0,
+    "removed_count": 1,
     "added": [],
-    "removed": []
+    "removed": [
+        {
+            "id": "9883",
+            "name": "한티역",
+            "address": "서울특별시 강남구 도곡로 408, 디마크빌딩 101호 (대치동)",
+            "since": "2026-11-25"
+        }
+    ]
 }
