@@ -1,11 +1,57 @@
 {
     "kind": "Korea Starbucks Store Changes",
-    "date": "2026-11-25",
+    "date": "2026-11-26",
     "stores_count": 2216,
-    "current_count": 2215,
-    "added_count": 0,
+    "current_count": 2216,
+    "added_count": 1,
     "removed_count": 1,
-    "added": [],
+    "added": [
+        {
+            "id": "4882",
+            "name": "인천구월예술로",
+            "address": "인천광역시 남동구 예술로 138 (구월동) 116,211호",
+            "since": "2026-11-26",
+            "draft": {
+                "id": "4882",
+                "name": "인천구월예술로",
+                "address": "인천광역시 남동구 예술로 138 (구월동) 116,211호",
+                "directions": "인천예술회관역 6번출구 맞은편 이토타워",
+                "description": null,
+                "lat": 37.4465106,
+                "lng": 126.7009982,
+                "type": [],
+                "opened": "2026-12-03",
+                "view": null,
+                "seats": null,
+                "smoking": "금지",
+                "pet": "금지",
+                "study": null,
+                "phone": "1522-3232",
+                "services": [
+                    "현금없는매장",
+                    "패스트서브",
+                    "터미널·기차역",
+                    "지하철인접",
+                    "공기청정기",
+                    "장애인편의시설"
+                ],
+                "parking": {
+                    "available": "주차가능",
+                    "fee": "조건부무료",
+                    "location": "입점건물지하",
+                    "spaces": "10대 이상",
+                    "condition": "1시간무료(단)",
+                    "method": null,
+                    "payment": "파트너에게요청",
+                    "memo": "구매한 영수증 확인 후 가능",
+                    "raw": "1.주차가능\n2.주차장위치-입점건물지하\n3.주차가능대수-10대이상\n4.주차조건-조건부 무료(1시간무료(단, 구매한 영수증 확인 후 가능)\n5.주차요금정산방법-파트너에게요청"
+                },
+                "images": [
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4882_20261118041039_9cdtu.png"
+                ]
+            }
+        }
+    ],
     "removed": [
         {
             "id": "9883",
