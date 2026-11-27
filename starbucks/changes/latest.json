@@ -1,11 +1,62 @@
 {
     "kind": "Korea Starbucks Store Changes",
-    "date": "2026-11-26",
+    "date": "2026-11-27",
     "stores_count": 2216,
-    "current_count": 2216,
-    "added_count": 1,
+    "current_count": 2217,
+    "added_count": 2,
     "removed_count": 1,
     "added": [
+        {
+            "id": "4814",
+            "name": "더남산서울타워",
+            "address": "서울특별시 용산구 남산공원길 105 (용산동2가) 4~5층 일부",
+            "since": "2026-11-27",
+            "draft": {
+                "id": "4814",
+                "name": "더남산서울타워",
+                "address": "서울특별시 용산구 남산공원길 105 (용산동2가) 4~5층 일부",
+                "directions": "남산예장버스환승주차장 01A,01B 버스 탑승하여 N서울타워 하차",
+                "description": "스타벅스 스페셜스토어 더남산서울타워점 방문을 환영합니다.",
+                "lat": 37.5511504,
+                "lng": 126.9881514,
+                "type": [],
+                "opened": "2026-11-27",
+                "view": null,
+                "seats": null,
+                "smoking": "금지",
+                "pet": "금지",
+                "study": null,
+                "phone": "1522-3232",
+                "services": [
+                    "21시이후영업",
+                    "입점",
+                    "공기청정기",
+                    "장애인편의시설"
+                ],
+                "parking": {
+                    "available": "주차불가능",
+                    "fee": null,
+                    "location": null,
+                    "spaces": null,
+                    "condition": null,
+                    "method": null,
+                    "payment": null,
+                    "memo": null,
+                    "raw": "주차불가"
+                },
+                "images": [
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126074125_ysd5j.jpg",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126075140_hwcma.png",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126075242_7b3z5.jpg",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126075420_e21vs.jpg",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126075509_l20de.jpg",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126075938_6o5ot.jpg",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126080012_dyqvf.jpg",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126080144_a17oh.jpg",
+                    "https://www.starbucks.co.kr/upload/store/2026/11/4814_20261126075844_0ljxi.jpg"
+                ]
+            }
+        },
         {
             "id": "4882",
             "name": "인천구월예술로",
